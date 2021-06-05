@@ -1,5 +1,5 @@
-#FinLin
+# FinLin
 
-##Finite linear algebra in C++
+## Finite linear algebra in C++
 
-###Thomas Kaldahl, 2021
+### Thomas Kaldahl, 2021
