@@ -60,6 +60,7 @@ class FinLin {
 	// Kernels
 	static cl_kernel scale; // Scale an array
 	static cl_kernel add; // Add two arrays element-wise
+	static cl_kernel addScaled; // Add a scalar multiple of an array to another
 	static cl_kernel hadamard; // Multiply two arrays element-wise
 	static cl_kernel sigmoid; // Perform fast sigmoid on each element
 	static cl_kernel dsigmoid; // Perform derivative of sigmoid on each element

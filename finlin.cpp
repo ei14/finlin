@@ -13,6 +13,15 @@ __kernel void add(__global double *augend, __global const double *addend) {
 	augend[i] += addend[i];
 }
 
+__kernel void addScaled(
+	__global double *augend,
+	__global const double *addend,
+	const double coeff
+) {
+	int i = get_global_id(0);
+	augend[i] += coeff * addend[i];
+}
+
 __kernel void hadamard(
 	__global double *multiplicand,
 	__global const double *multiplier
@@ -83,6 +92,7 @@ cl_program FinLin::program;
 cl_kernel FinLin::reduce;
 cl_kernel FinLin::scale;
 cl_kernel FinLin::add;
+cl_kernel FinLin::addScaled;
 cl_kernel FinLin::hadamard;
 cl_kernel FinLin::sigmoid;
 cl_kernel FinLin::dsigmoid;
@@ -236,6 +246,7 @@ void FinLin::init(int platformID, int deviceID) {
 
 	scale = clCreateKernel(program, "scale", &err); checkErr();
 	add = clCreateKernel(program, "add", &err); checkErr();
+	addScaled = clCreateKernel(program, "addScaled", &err); checkErr();
 	hadamard = clCreateKernel(program, "hadamard", &err); checkErr();
 	reduce = clCreateKernel(program, "reduce", &err); checkErr();
 	sigmoid = clCreateKernel(program, "sigmoid", &err); checkErr();
@@ -496,16 +507,12 @@ Vec Vec::operator-=(Vec subtrahend) {
 	ensureSameVecDim(d, subtrahend.d, "subtract");
 
 	update();
-	Vec addend = subtrahend.copy();
-	addend.update();
+	subtrahend.update();
 
-	setArg(FinLin::scale, 0, addend.clmem);
-	setArg(FinLin::scale, 1, -1.0);
-	execKernel(FinLin::scale, 0, d, 0);
-
-	setArg(FinLin::add, 0, clmem);
-	setArg(FinLin::add, 1, addend.clmem);
-	execKernel(FinLin::add, 0, d, 0);
+	setArg(FinLin::addScaled, 0, clmem);
+	setArg(FinLin::addScaled, 1, subtrahend.clmem);
+	setArg(FinLin::addScaled, 2, -1.0);
+	execKernel(FinLin::addScaled, 0, d, 0);
 
 	readBuffer(clmem, 0, d*sizeof(double), data);
 
@@ -858,16 +865,12 @@ Mat Mat::operator-=(Mat subtrahend) {
 	ensureSameMatDim(h, w, subtrahend.h, subtrahend.w, "subtract");
 
 	update();
-	Mat addend = subtrahend.copy();
-	addend.update();
+	subtrahend.update();
 
-	setArg(FinLin::scale, 0, addend.clmem);
-	setArg(FinLin::scale, 1, -1.0);
-	execKernel(FinLin::scale, 0, w*h, 0);
-
-	setArg(FinLin::add, 0, clmem);
-	setArg(FinLin::add, 1, addend.clmem);
-	execKernel(FinLin::add, 0, w*h, 0);
+	setArg(FinLin::addScaled, 0, clmem);
+	setArg(FinLin::addScaled, 1, subtrahend.clmem);
+	setArg(FinLin::addScaled, 2, -1.0);
+	execKernel(FinLin::addScaled, 0, w*h, 0);
 
 	readBuffer(clmem, 0, w*h * sizeof(double), data);
 
