@@ -161,12 +161,26 @@ void FinLin::checkErr() {
 			case -11:
 				fprintf(stderr, "Build program failure\n");
 				if(err != 0) {
-					fprintf(stderr, "\nCould not build program.\nOpenCL failed with exit code %d\n\n", err);
+					fprintf(stderr, "\n\nExit code %d\n\n", err);
 					char *errLog;
 					size_t errLen;
-					clGetProgramBuildInfo(program, devices[deviceID], CL_PROGRAM_BUILD_LOG, 0, NULL, &errLen);
+					clGetProgramBuildInfo(
+						program,
+						devices[deviceID],
+						CL_PROGRAM_BUILD_LOG,
+						0,
+						NULL,
+						&errLen
+					);
 					errLog = (char*)malloc((errLen + 1) * sizeof(char));
-					clGetProgramBuildInfo(program, devices[deviceID], CL_PROGRAM_BUILD_LOG, errLen, errLog, NULL);
+					clGetProgramBuildInfo(
+						program,
+						devices[deviceID],
+						CL_PROGRAM_BUILD_LOG,
+						errLen,
+						errLog,
+						NULL
+					);
 					errLog[errLen] = 0;
 					fprintf(stderr, "\nBuild Log:\n%s\n", errLog);
 				}
@@ -180,7 +194,7 @@ void FinLin::checkErr() {
 void FinLin::init(int platformID, int deviceID) {
 	FinLin::platformID = platformID;
 	FinLin::deviceID = deviceID;
-	platforms = (cl_platform_id*)malloc((platformID + 1) * sizeof(cl_platform_id));
+	platforms = (cl_platform_id*)malloc((platformID+1)*sizeof(cl_platform_id));
 	devices = (cl_device_id*)malloc((deviceID + 1) * sizeof(cl_device_id));
 	platformCount = (cl_uint*)malloc(sizeof(cl_uint));
 	deviceCount = (cl_uint*)malloc(sizeof(cl_uint));
@@ -480,7 +494,22 @@ Vec Vec::operator+=(Vec addend) {
 
 Vec Vec::operator-=(Vec subtrahend) {
 	ensureSameVecDim(d, subtrahend.d, "subtract");
-	return *this += -subtrahend;
+
+	update();
+	Vec addend = subtrahend.copy();
+	addend.update();
+
+	setArg(FinLin::scale, 0, addend.clmem);
+	setArg(FinLin::scale, 1, -1.0);
+	execKernel(FinLin::scale, 0, d, 0);
+
+	setArg(FinLin::add, 0, clmem);
+	setArg(FinLin::add, 1, addend.clmem);
+	execKernel(FinLin::add, 0, d, 0);
+
+	readBuffer(clmem, 0, d*sizeof(double), data);
+
+	return *this;
 }
 
 Vec Vec::operator%=(Vec multiplier) {
@@ -538,7 +567,9 @@ Vec Vec::operator+(Vec addend) const {
 }
 Vec Vec::operator-(Vec subtrahend) const {
 	ensureSameVecDim(d, subtrahend.d, "subtract");
-	return *this + -subtrahend;
+	Vec minuend = copy();
+	minuend -= subtrahend;
+	return minuend;
 }
 Vec Vec::operator%(Vec multiplier) const {
 	ensureSameVecDim(d, multiplier.d, "multiply");
@@ -825,7 +856,22 @@ Mat Mat::operator+=(Mat addend) {
 }
 Mat Mat::operator-=(Mat subtrahend) {
 	ensureSameMatDim(h, w, subtrahend.h, subtrahend.w, "subtract");
-	return *this += -subtrahend;
+
+	update();
+	Mat addend = subtrahend.copy();
+	addend.update();
+
+	setArg(FinLin::scale, 0, addend.clmem);
+	setArg(FinLin::scale, 1, -1.0);
+	execKernel(FinLin::scale, 0, w*h, 0);
+
+	setArg(FinLin::add, 0, clmem);
+	setArg(FinLin::add, 1, addend.clmem);
+	execKernel(FinLin::add, 0, w*h, 0);
+
+	readBuffer(clmem, 0, w*h * sizeof(double), data);
+
+	return *this;
 }
 
 // Binary operations
@@ -903,7 +949,9 @@ Mat Mat::operator+(Mat addend) const {
 	return augend;
 }
 Mat Mat::operator-(Mat addend) const {
-	return *this + -addend;
+	Mat minuend = copy();
+	minuend -= addend;
+	return minuend;
 }
 
 // Misc operations
