@@ -1,3 +1,5 @@
+// Copyright (c) 2021 Thomas Kaldahl
+
 #include "finlin.hpp"
 
 const char *FinLin::SRC = R"(
@@ -32,6 +34,40 @@ __kernel void dsigmoid(__global double *arr) {
 	int i = get_global_id(0);
 	arr[i] = pown(1.0 + fabs(2.0 * arr[i]), -2);
 }
+
+__kernel void matVec(
+	__global const double *matrix,
+	__global const double *vector,
+	__global double *prod,
+	const int depth
+) {
+	int r = get_global_id(0);
+	int h = get_global_size(0);
+
+	prod[r] = 0;
+
+	for(int i = 0; i < depth; i++) {
+		prod[r] += matrix[r*depth + i] * vector[i];
+	}
+}
+
+__kernel void matMul(
+	__global const double *mplcnd,
+	__global const double *mplier,
+	__global double *prod,
+	const int depth
+) {
+	int r = get_global_id(0);
+	int c = get_global_id(1);
+	int h = get_global_size(0);
+	int w = get_global_size(1);
+
+	prod[r*w + c] = 0;
+
+	for(int i = 0; i < depth; i++) {
+		prod[r*w + c] += mplcnd[r*depth + i] * mplier[c + i*w];
+	}
+}
 )";
 
 int FinLin::err;
@@ -51,7 +87,7 @@ cl_kernel FinLin::hadamard;
 cl_kernel FinLin::sigmoid;
 cl_kernel FinLin::dsigmoid;
 cl_kernel FinLin::matMul;
-cl_kernel FinLin::adjoint;
+cl_kernel FinLin::matVec;
 
 double *res;
 cl_mem memRes;
@@ -190,6 +226,8 @@ void FinLin::init(int platformID, int deviceID) {
 	reduce = clCreateKernel(program, "reduce", &err); checkErr();
 	sigmoid = clCreateKernel(program, "sigmoid", &err); checkErr();
 	dsigmoid = clCreateKernel(program, "dsigmoid", &err); checkErr();
+	matVec = clCreateKernel(program, "matVec", &err); checkErr();
+	matMul = clCreateKernel(program, "matMul", &err); checkErr();
 }
 
 // General helper functions
@@ -236,7 +274,6 @@ void writeBuffer(cl_mem buffer, size_t offset, size_t cb, const void *ptr) {
 }
 void execKernel(
 	cl_kernel kernel,
-	int dim,
 	size_t offset,
 	size_t globalSize,
 	size_t localSize // 0 for NULL
@@ -248,7 +285,7 @@ void execKernel(
 		FinLin::err = clEnqueueNDRangeKernel(
 			FinLin::commandQueue,
 			kernel,
-			dim,
+			1,
 			&workOffset,
 			&globalWorkSize,
 			NULL,
@@ -260,9 +297,48 @@ void execKernel(
 		FinLin::err = clEnqueueNDRangeKernel(
 			FinLin::commandQueue,
 			kernel,
-			dim,
+			1,
 			&workOffset,
 			&globalWorkSize,
+			&localWorkSize,
+			0,
+			NULL,
+			NULL
+		);
+	}
+	FinLin::checkErr();
+}
+void execKernel(
+	cl_kernel kernel,
+	size_t offset,
+	size_t globalSizeX,
+	size_t globalSizeY,
+	size_t localSize // 0 for NULL
+) {
+	size_t workOffset = offset;
+	size_t *globalWorkSize = (size_t*)malloc(2 * sizeof(size_t));
+	globalWorkSize[0] = globalSizeX;
+	globalWorkSize[1] = globalSizeY;
+	size_t localWorkSize = localSize;
+	if(localSize == 0) {
+		FinLin::err = clEnqueueNDRangeKernel(
+			FinLin::commandQueue,
+			kernel,
+			2,
+			&workOffset,
+			globalWorkSize,
+			NULL,
+			0,
+			NULL,
+			NULL
+		);
+	} else {
+		FinLin::err = clEnqueueNDRangeKernel(
+			FinLin::commandQueue,
+			kernel,
+			2,
+			&workOffset,
+			globalWorkSize,
 			&localWorkSize,
 			0,
 			NULL,
@@ -314,6 +390,7 @@ void Vec::createMem() {
 	FinLin::checkErr();
 	dirty = true;
 }
+
 Vec Vec::copy() const {
 	Vec res = Vec(d);
 	memcpy(res.data, data, d * sizeof(double));
@@ -360,14 +437,14 @@ double Vec::comp(int index) const {
 char *Vec::string() const {
 	const int MAXLEN = 12;
 	char *res = (char*)malloc(MAXLEN * d * sizeof(char));
-	res[0] = '<';
-	char *resp = res + 1;
+	snprintf(res, 3, "< ");
+	char *resp = res + strlen(res);
 	for(int i = 0; i < d; i++) {
 		snprintf(resp, MAXLEN, "%0.3f, ", data[i]);
 		resp += strlen(resp);
 	}
 	resp -= strlen(", ");
-	*resp = '>';
+	snprintf(resp, 3, " >");
 	return res;
 }
 
@@ -377,14 +454,14 @@ Vec Vec::operator*=(double scalar) {
 
 	setArg(FinLin::scale, 0, clmem);
 	setArg(FinLin::scale, 1, scalar);
-	execKernel(FinLin::scale, 1, 0, d, 0);
+	execKernel(FinLin::scale, 0, d, 0);
 	readBuffer(clmem, 0, d*sizeof(double), data);
 
 	return *this;
 }
 
-Vec Vec::operator/=(double scalar) {
-	return *this *= 1.0/scalar;
+Vec Vec::operator/=(double divisor) {
+	return *this *= 1.0/divisor;
 }
 
 Vec Vec::operator+=(Vec addend) {
@@ -395,7 +472,7 @@ Vec Vec::operator+=(Vec addend) {
 
 	setArg(FinLin::add, 0, clmem);
 	setArg(FinLin::add, 1, addend.clmem);
-	execKernel(FinLin::add, 1, 0, d, 0);
+	execKernel(FinLin::add, 0, d, 0);
 	readBuffer(clmem, 0, d*sizeof(double), data);
 
 	return *this;
@@ -413,7 +490,7 @@ Vec Vec::operator%=(Vec multiplier) {
 
 	setArg(FinLin::hadamard, 0, clmem);
 	setArg(FinLin::hadamard, 1, multiplier.clmem);
-	execKernel(FinLin::hadamard, 1, 0, d, 0);
+	execKernel(FinLin::hadamard, 0, d, 0);
 	readBuffer(clmem, 0, d*sizeof(double), data);
 
 	return *this;
@@ -423,7 +500,7 @@ Vec Vec::setSigmoid() {
 	update();
 
 	setArg(FinLin::sigmoid, 0, clmem);
-	execKernel(FinLin::sigmoid, 1, 0, d, 0);
+	execKernel(FinLin::sigmoid, 0, d, 0);
 	readBuffer(clmem, 0, d*sizeof(double), data);
 
 	return *this;
@@ -432,14 +509,14 @@ Vec Vec::setDsigmoid() {
 	update();
 
 	setArg(FinLin::dsigmoid, 0, clmem);
-	execKernel(FinLin::dsigmoid, 1, 0, d, 0);
+	execKernel(FinLin::dsigmoid, 0, d, 0);
 	readBuffer(clmem, 0, d*sizeof(double), data);
 
 	return *this;
 }
 
 // Binary operations
-Vec Vec::operator*(double scalar) {
+Vec Vec::operator*(double scalar) const {
 	Vec vector = copy();
 	vector *= scalar;
 	return vector;
@@ -447,29 +524,29 @@ Vec Vec::operator*(double scalar) {
 Vec operator*(double scalar, Vec vector) {
 	return vector * scalar;
 }
-Vec Vec::operator/(double divisor) {
+Vec Vec::operator/(double divisor) const {
 	Vec dividend = copy();
 	dividend /= divisor;
 	return dividend;
 }
 
-Vec Vec::operator+(Vec addend) {
+Vec Vec::operator+(Vec addend) const {
 	ensureSameVecDim(d, addend.d, "add");
 	Vec augend = copy();
 	augend += addend;
 	return augend;
 }
-Vec Vec::operator-(Vec subtrahend) {
+Vec Vec::operator-(Vec subtrahend) const {
 	ensureSameVecDim(d, subtrahend.d, "subtract");
 	return *this + -subtrahend;
 }
-Vec Vec::operator%(Vec multiplier) {
+Vec Vec::operator%(Vec multiplier) const {
 	ensureSameVecDim(d, multiplier.d, "multiply");
 	Vec multiplicand = copy();
 	multiplicand %= multiplier;
 	return multiplicand;
 }
-double Vec::operator*(Vec multiplier) {
+double Vec::operator*(Vec multiplier) const {
 	if(d == 0 || multiplier.d == 0) return 0;
 
 	Vec hdm = *this % multiplier; // hdm is for Hadamard
@@ -488,7 +565,7 @@ double Vec::operator*(Vec multiplier) {
 		len /= 2;
 		setArg(FinLin::reduce, 1, len);
 
-		execKernel(FinLin::reduce, 1, 0, len, 0);
+		execKernel(FinLin::reduce, 0, len, 0);
 	}
 
 	// Only the first element is read. It should equal the result.
@@ -498,23 +575,23 @@ double Vec::operator*(Vec multiplier) {
 }
 
 // Unary operations
-Vec Vec::operator-() {
+Vec Vec::operator-() const {
 	return -1 * *this;
 }
 
-double Vec::norm() {
+double Vec::norm() const {
 	return sqrt(*this * *this);
 }
-Vec Vec::normal() {
+Vec Vec::normal() const {
 	return *this / norm();
 }
 
-Vec Vec::sigmoid() {
+Vec Vec::sigmoid() const {
 	Vec res = copy();
 	res.setSigmoid();
 	return res;
 }
-Vec Vec::dsigmoid() {
+Vec Vec::dsigmoid() const {
 	Vec res = copy();
 	res.setDsigmoid();
 	return res;
@@ -564,4 +641,329 @@ void ensureMulMatDims(int w1, int h2, const char *operation) {
 		);
 		exit(1);
 	}
+}
+void ensureSquare(int h, int w, const char *operation) {
+	if(w != h) {
+		fprintf(
+			stderr,
+			"Cannot %s of non-square matrix.\n",
+			operation
+		);
+		exit(1);
+	}
+}
+void ensureNonzero(int h, int w, const char *operation) {
+	if(w == 0 || h == 0) {
+		fprintf(
+			stderr,
+			"Cannot %s of matrix with zero elements.\n",
+			operation
+		);
+		exit(1);
+	}
+}
+void ensureInbound(int r, int c, int h, int w, const char *operation) {
+	if(r < 0) {
+		fprintf(
+			stderr,
+			"Cannot %s in negative row (row %d).\n",
+			operation,
+			r
+		);
+		exit(1);
+	}
+	if(c < 0) {
+		fprintf(
+			stderr,
+			"Cannot %s in negative column (column %d).\n",
+			operation,
+			c
+		);
+		exit(1);
+	}
+	if(r >= h) {
+		fprintf(
+			stderr,
+			"Matrix only contains %d rows. "
+			"Cannot %s in row %d.\n",
+			h,
+			operation,
+			r
+		);
+		exit(1);
+	}
+	if(c >= w) {
+		fprintf(
+			stderr,
+			"Matrix only contains %d columns. "
+			"Cannot %s in column %d.\n",
+			w,
+			operation,
+			c
+		);
+		exit(1);
+	}
+}
+
+// Technical methods
+void Mat::createMem() {
+	clmem = clCreateBuffer(
+		FinLin::context,
+		CL_MEM_READ_WRITE,
+		w*h * sizeof(double),
+		NULL,
+		&FinLin::err
+	);
+	FinLin::checkErr();
+	dirty = true;
+}
+
+Mat Mat::copy() const {
+	Mat res = Mat(h, w);
+	memcpy(res.data, data, w*h * sizeof(double));
+	return res;
+}
+bool Mat::update() {
+	if(!dirty) return false;
+	writeBuffer(clmem, 0, w*h * sizeof(double), data);
+	dirty = false;
+	return true;
+}
+
+// Constructors
+Mat::Mat(int height, int width, double *components) {
+	h = height;
+	w = width;
+	data = components;
+	createMem();
+}
+Mat::Mat(int height, int width) {
+	h = height;
+	w = width;
+	data = (double*)malloc(w*h * sizeof(double));
+	memset(data, 0, w*h * sizeof(double));
+	createMem();
+}
+Mat::Mat(int size, double scalar) {
+	h = size;
+	w = size;
+	data = (double*)malloc(w*h * sizeof(double));
+	memset(data, 0, w*h * sizeof(double));
+	for(int i = 0; i < w*h; i += w+1) {
+		data[i] = scalar;
+	}
+	createMem();
+}
+Mat::Mat(int size) : Mat(size, 1.0) {}
+
+// Statics
+Mat Mat::randomUniform(int height, int width, double min, double max) {
+	double *components = (double*)malloc(width*height * sizeof(double));
+	for(int i = 0; i < width*height; i++) {
+		components[i] = (max - min) * rand() / RAND_MAX + min;
+	}
+	return Mat(height, width, components);
+}
+
+// Accessors
+int Mat::height() const {
+	return h;
+}
+int Mat::width() const {
+	return w;
+}
+
+double Mat::comp(int r, int c) const {
+	ensureInbound(r, c, h, w, "access component");
+	return data[w*r + c];
+}
+
+char *Mat::string() const {
+	const int MAXLEN = 12;
+	char *res = (char*)malloc(MAXLEN * w*h * sizeof(char));
+	snprintf(res, MAXLEN, "(\n");
+	char *resp = res + 2;
+	for(int r = 0; r < h; r++) {
+		for(int c = 0; c < w; c++) {
+			snprintf(resp, MAXLEN, "\t%0.3f", data[w*r + c]);
+			resp += strlen(resp);
+		}
+		*resp = '\n';
+		resp++;
+	}
+	snprintf(resp, 2, ")");
+	return res;
+}
+
+// In-place operations
+Mat Mat::operator*=(double scalar) {
+	update();
+
+	setArg(FinLin::scale, 0, clmem);
+	setArg(FinLin::scale, 1, scalar);
+	execKernel(FinLin::scale, 0, w*h, 0);
+	readBuffer(clmem, 0, w*h * sizeof(double), data);
+
+	return *this;
+}
+Mat Mat::operator/=(double divisor) {
+	return *this *= 1.0/divisor;
+}
+
+Mat Mat::operator+=(Mat addend) {
+	ensureSameMatDim(h, w, addend.h, addend.w, "add");
+
+	update();
+	addend.update();
+
+	setArg(FinLin::add, 0, clmem);
+	setArg(FinLin::add, 1, addend.clmem);
+	execKernel(FinLin::add, 0, w*h, 0);
+	readBuffer(clmem, 0, w*h * sizeof(double), data);
+
+	return *this;
+}
+Mat Mat::operator-=(Mat subtrahend) {
+	ensureSameMatDim(h, w, subtrahend.h, subtrahend.w, "subtract");
+	return *this += -subtrahend;
+}
+
+// Binary operations
+Mat Mat::operator*(double scalar) const {
+	Mat matrix = copy();
+	matrix *= scalar;
+	return matrix;
+}
+Mat operator*(double scalar, Mat matrix) {
+	Mat product = matrix.copy();
+	product *= scalar;
+	return product;
+}
+Mat Mat::operator/(double divisor) const {
+	Mat dividend = copy();
+	dividend /= divisor;
+	return dividend;
+}
+
+Vec Mat::operator*(Vec vector) {
+	ensureMulMatDims(w, vector.d, "multiply");
+	update();
+	vector.update();
+
+	cl_mem resBuff = clCreateBuffer(
+		FinLin::context,
+		CL_MEM_READ_WRITE,
+		h * sizeof(double),
+		NULL,
+		&FinLin::err
+	);
+	FinLin::checkErr();
+
+	setArg(FinLin::matVec, 0, clmem);
+	setArg(FinLin::matVec, 1, vector.clmem);
+	setArg(FinLin::matVec, 2, resBuff);
+	setArg(FinLin::matVec, 3, w);
+	execKernel(FinLin::matVec, 0, h, 0);
+
+	double *resData = (double*)malloc(h * sizeof(double));
+	readBuffer(resBuff, 0, h * sizeof(double), resData);
+
+	return Vec(h, resData);
+}
+
+Mat Mat::operator*(Mat multiplier) {
+	ensureMulMatDims(w, multiplier.h, "multiply");
+	update();
+	multiplier.update();
+
+	cl_mem resBuff = clCreateBuffer(
+		FinLin::context,
+		CL_MEM_READ_WRITE,
+		h * multiplier.w * sizeof(double),
+		NULL,
+		&FinLin::err
+	);
+	FinLin::checkErr();
+
+	setArg(FinLin::matMul, 0, clmem);
+	setArg(FinLin::matMul, 1, multiplier.clmem);
+	setArg(FinLin::matMul, 2, resBuff);
+	setArg(FinLin::matMul, 3, w);
+	execKernel(FinLin::matMul, 0, h, multiplier.w, 0);
+
+	double *resData = (double*)malloc(h * multiplier.w * sizeof(double));
+	readBuffer(resBuff, 0, h * multiplier.w * sizeof(double), resData);
+
+	return Mat(h, multiplier.w, resData);
+}
+
+Mat Mat::operator+(Mat addend) const {
+	Mat augend = copy();
+	augend += addend;
+	return augend;
+}
+Mat Mat::operator-(Mat addend) const {
+	return *this + -addend;
+}
+
+// Misc operations
+double Mat::minor(int r, int c) const {
+	ensureNonzero(h, w, "find minor");
+	ensureSquare(h, w, "find minor");
+
+	double *dest = (double*)malloc((w-1)*(h-1) * sizeof(double));
+
+	double *destp = dest;
+	double *srcp = data;
+	for(int row = 0; row < h-1; row++) {
+		if(row == r) srcp += w;
+
+		memcpy(destp, srcp, c*sizeof(double));
+		memcpy(destp + c, srcp + c+1, (w-1 - c)*sizeof(double));
+
+		destp += (w-1);
+		srcp += w;
+	}
+
+	return Mat(h-1, w-1, dest).det();
+}
+
+// Unary operations
+double Mat::det() const {
+	ensureSquare(h, w, "take determinant");
+	if(h == 0) return 0;
+	if(h == 1) return data[0];
+
+	double sum = 0;
+	for(int x = 0; x < w; x++) {
+		sum += (x % 2 == 0 ? 1 : -1) * data[x] * minor(0, x);
+	}
+	return sum;
+}
+
+bool Mat::invertible() const {
+	return det() != 0;
+}
+
+double Mat::trace() const {
+	ensureSquare(h, w, "find trace");
+	double sum = 0;
+	for(int i = 0; i < h; i++) {
+		sum += comp(i, i);
+	}
+	return sum;
+}
+
+Mat Mat::operator-() const {
+	return -1 * *this;
+}
+
+Mat Mat::T() const {
+	double *res = (double*)malloc(w*h * sizeof(double));
+	for(int r = 0; r < h; r++) {
+		for(int c = 0; c < w; c++) {
+			res[c*h + r] = data[r*w + c];
+		}
+	}
+	return Mat(w, h, res);
 }

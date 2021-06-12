@@ -1,3 +1,5 @@
+// Copyright (c) 2021 Thomas Kaldahl
+
 #ifndef FINLIN_HPP
 #define FINLIN_HPP
 
@@ -22,9 +24,15 @@ class FinLin {
 	);
 	friend void execKernel(
 		cl_kernel kernel,
-		int dim,
 		size_t offset,
 		size_t globalWorkSize,
+		size_t localWorkSize
+	);
+	friend void execKernel(
+		cl_kernel kernel,
+		size_t offset,
+		size_t globalSizeX,
+		size_t globalSizeY,
 		size_t localWorkSize
 	);
 	friend void readBuffer(
@@ -56,8 +64,8 @@ class FinLin {
 	static cl_kernel sigmoid; // Perform fast sigmoid on each element
 	static cl_kernel dsigmoid; // Perform derivative of sigmoid on each element
 	static cl_kernel reduce; // Halves an even-length array, preserving sum.
+	static cl_kernel matVec; // Matrix and vector multiplication
 	static cl_kernel matMul; // Matrix multiplication
-	static cl_kernel adjoint; // Find adjoint matrix
 
 	static void checkErr(); // Stops the program if there is an error
 
@@ -72,6 +80,8 @@ class FinLin {
 };
 
 class Vec { // Vector, real components, double precision, on the GPU.
+	friend class Mat;
+
 	int d; // Dimension
 	double *data; // Components
 	cl_mem clmem; // OpenCL memory object
@@ -88,6 +98,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	// Constructors
 	Vec(int dimension); // Zero vector
 	Vec(int dimension, double* components);
+	Vec(int dimension, double value); // Populates all components with value
 
 	// Accessors
 	int dim() const; // Dimension
@@ -96,21 +107,21 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	char *string() const; // As a string
 
 	// Unary operations
-	Vec operator-();
-	double norm(); // Magnitude
-	Vec normal(); // Unit vector
+	Vec operator-() const;
+	double norm() const; // Magnitude
+	Vec normal() const; // Unit vector
 
-	Vec sigmoid(); // Fast sigmoid function
-	Vec dsigmoid(); // Derivative of fast sigmoid function
+	Vec sigmoid() const; // Fast sigmoid function
+	Vec dsigmoid() const; // Derivative of fast sigmoid function
 
 	// Binary operations
-	Vec operator*(double scalar);
-	Vec operator/(double divisor);
+	Vec operator*(double scalar) const;
+	Vec operator/(double divisor) const;
 
-	Vec operator+(Vec addend); // Throws error if dimensions mis-match
-	Vec operator-(Vec subtrahend); // ''
-	Vec operator%(Vec multiplier); // Hadamard product
-	double operator*(Vec multiplier); // Dot product
+	Vec operator+(Vec addend) const; // Throws error if dimensions mis-match
+	Vec operator-(Vec subtrahend) const; // ''
+	Vec operator%(Vec multiplier) const; // Hadamard product
+	double operator*(Vec multiplier) const; // Dot product
 
 	// In-place operations
 	Vec operator*=(double scalar);
@@ -133,12 +144,14 @@ class Vec { // Vector, real components, double precision, on the GPU.
 Vec operator*(double scalar, Vec vector);
 
 class Mat { // Matrix, real components, double precision, on the GPU.
-	double data; // Components, row by row
+	double *data; // Components, row by row
 	int h; // Height
 	int w; // Width
 	cl_mem clmem; // OpenCL memory object
 
 	bool dirty; // Changes have been made in RAM but not in GPU RAM
+
+	void createMem();
 
 	public:
 
@@ -147,6 +160,7 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 
 	// Constructors
 	Mat(int size); // Identity matrix
+	Mat(int size, double scalar); // Scalar multiple of identity matrix
 	Mat(int height, int width); // Zero matrix
 	Mat(int height, int width, double *data);
 
@@ -158,41 +172,45 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	char *string() const; // As a string
 
 	// Unary operations
-	bool invertible();
+	bool invertible() const;
 
-	double det(); // Determinant
+	double det() const; // Determinant
 	double trace() const;
 
-	Mat operator-();
-	Mat T(); // Transpose
-	Mat adj(); // Adjoint
-	Mat inv(); // Inverse. Throws error if not invertible.
+	Mat operator-() const;
+	Mat T() const; // Transpose
+	Mat cofactor() const;
+	Mat adj() const; // Adjoint
+	Mat inv() const; // Inverse. Throws error if not invertible.
+
+	// Misc operations
+	double minor(int r, int c) const;
 
 	// Binary operations
-	Mat operator*(double scalar);
-	Mat operator/(double divisor);
+	Mat operator*(double scalar) const;
+	Mat operator/(double divisor) const;
 
 	Vec operator*(Vec multiplier); // Throws error if dimensions mis-match
 
 	Mat operator*(Mat multiplier); // ''
-	Mat operator+(Mat multiplier);
-	Mat operator-(Mat multiplier);
+	Mat operator+(Mat addend) const;
+	Mat operator-(Mat subtrahend) const;
 
 	// In-place operations
 	Mat operator*=(double scalar);
 	Mat operator/=(double divisor);
 
-	Mat operator*=(Mat multiplier); // Multiply as usual
-	Mat operator%=(Mat multiplicand); // Multiply in reverse order
+	Mat operator+=(Mat addend);
+	Mat operator-=(Mat subtrahend);
 
 	// Mutators
 	double setComp(int r, int c, double value);	// Sets component.
 												// Returns previous value.
 	// Technical methods
-	Mat copy();
+	Mat copy() const;
 	bool update();	// If necessary, updates the GPU memory and returns true.
 					// Matrix operations should do this automatically.
 };
-double operator*(double scalar, Mat matrix);
+Mat operator*(double scalar, Mat matrix);
 
 #endif
