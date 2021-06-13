@@ -63,6 +63,16 @@ Vec Vec::randomUniform(int dim, double min, double max) {
 	return Vec(dim, components);
 }
 
+Vec *Vec::gramSchmidt(int numVecs, Vec *vecs) {
+	for(int v = 0; v < numVecs; v++) {
+		for(int w = 0; w < v; w++) {
+			vecs[v] -= (vecs[v] * vecs[w]) * vecs[w];
+		}
+		vecs[v].normalize();
+	}
+	return vecs;
+}
+
 // Accessors
 int Vec::dim() const {
 	return d;

@@ -332,26 +332,6 @@ Mat Mat::operator-(Mat subtrahend) const {
 }
 
 // Misc operations
-double Mat::minor(int r, int c) const {
-	ensureNonzero(h, w, "find minor");
-	ensureSquare(h, w, "find minor");
-
-	double *dest = (double*)malloc((w-1)*(h-1) * sizeof(double));
-
-	double *destp = dest;
-	double *srcp = data;
-	for(int row = 0; row < h-1; row++) {
-		if(row == r) srcp += w;
-
-		memcpy(destp, srcp, c*sizeof(double));
-		memcpy(destp + c, srcp + c+1, (w-1 - c)*sizeof(double));
-
-		destp += (w-1);
-		srcp += w;
-	}
-
-	return Mat(h-1, w-1, dest).det();
-}
 Vec Mat::rowVec(int row) const {
 	double *components = (double*)malloc(w * sizeof(double));
 	memcpy(components, data + row*w, w * sizeof(double));
@@ -371,11 +351,19 @@ double Mat::det() const {
 	if(h == 0) return 0;
 	if(h == 1) return data[0];
 
-	double sum = 0;
-	for(int x = 0; x < w; x++) {
-		sum += (x % 2 == 0 ? 1 : -1) * data[x] * minor(0, x);
+	Vec *original = (Vec*)malloc(h * sizeof(Vec));
+	Vec *orthonormal = (Vec*)malloc(h * sizeof(Vec));
+	for(int r = 0; r < h; r++) {
+		original[r] = rowVec(r);
+		orthonormal[r] = rowVec(r);
 	}
-	return sum;
+	Vec::gramSchmidt(h, orthonormal);
+
+	double res = 1;
+	for(int r = 0; r < h; r++) {
+		res *= original[r] * orthonormal[r];
+	}
+	return res;
 }
 
 bool Mat::invertible() const {

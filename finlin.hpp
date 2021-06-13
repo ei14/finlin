@@ -96,6 +96,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 
 	// Statics
 	static Vec randomUniform(int dim, double min, double max);
+	static Vec *gramSchmidt(int numVecs, Vec *vecs); // Mutates input.
 
 	// Constructors
 	Vec(int dimension); // Zero vector
@@ -191,7 +192,6 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	// Misc operations
 	Vec rowVec(int row) const;
 	Vec colVec(int col) const;
-	double minor(int r, int c) const;
 
 	// Binary operations
 	Mat operator*(double scalar) const;
