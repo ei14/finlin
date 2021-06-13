@@ -210,6 +210,8 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	Mat operator+=(Mat addend);
 	Mat operator-=(Mat subtrahend);
 
+	Mat RREF();
+
 	// Mutators
 	double setComp(int r, int c, double value);	// Sets component.
 												// Returns previous value.

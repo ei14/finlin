@@ -251,6 +251,51 @@ Mat Mat::operator-=(Mat subtrahend) {
 	return *this;
 }
 
+Mat Mat::RREF() {
+	for(int c = 0; c < h; c++) {
+		for(int r = c; r < h; r++) {
+			if(comp(r, c) == 0) {
+				Vec badRow = rowVec(r);
+				bool found = false;
+				for(int s = r; s < h; s++) {
+					if(comp(s, c) != 0) {
+						badRow += rowVec(s);
+						memcpy(data + r*w, badRow.data, w*sizeof(double));
+						found = true;
+						break;
+					}
+				}
+				if(!found) {
+					fprintf(stderr, "This limited implementation of RREF does "
+						"not support singular matrices.");
+					exit(1);
+				}
+			}
+		}
+		Vec initialCol = colVec(c);
+		Vec firstRow = rowVec(c);
+		firstRow /= initialCol.comp(c);
+		memcpy(data + c*w, firstRow.data, w*sizeof(double));
+		for(int r = c+1; r < h; r++) {
+			Vec row = rowVec(r);
+			row /= initialCol.comp(r);
+			row -= firstRow;
+			memcpy(data + r*w, row.data, w*sizeof(double));
+		}
+	}
+	for(int c = h-2; c >= 0; c--) {
+		Vec minuend = rowVec(c);
+		for(int r = h-1; r > c; r--) {
+			Vec subtrahend = rowVec(r);
+			subtrahend *= minuend.comp(r);
+			minuend -= subtrahend;
+		}
+		memcpy(data + c*w, minuend.data, w*sizeof(double));
+	}
+
+	return *this;
+}
+
 // Binary operations
 Mat Mat::operator*(double scalar) const {
 	Mat matrix = copy();
@@ -391,4 +436,20 @@ Mat Mat::T() const {
 		}
 	}
 	return Mat(w, h, res);
+}
+Mat Mat::inv() const {
+	ensureSquare(h, w, "take inverse");
+	double *augmented = (double*)malloc(2*w*h * sizeof(double));
+	for(int r = 0; r < h; r++) {
+		memcpy(augmented + 2*w*r, data + r*w, w * sizeof(double));
+		memset(augmented + 2*w*r + w, 0, w * sizeof(double));
+		augmented[2*w*r + w + r] = 1;
+	}
+	Mat augMat = Mat(h, 2*w, augmented);
+	augMat.RREF();
+	double *resData = (double*)malloc(w*h * sizeof(double));
+	for(int r = 0; r < h; r++) {
+		memcpy(resData + w*r, augmented + 2*w*r + w, w * sizeof(double));
+	}
+	return Mat(h, w, resData);
 }
