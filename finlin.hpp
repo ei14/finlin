@@ -158,6 +158,8 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 
 	// Statics
 	static Mat randomUniform(int height, int width, double min, double max);
+	static Mat fromRowVecs(int numVecs, Vec *vecs); // Throws error if
+	static Mat fromColVecs(int numVecs, Vec *vecs); // dimensions don't match.
 
 	// Constructors
 	Mat(int size); // Identity matrix
@@ -185,6 +187,8 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	Mat inv() const; // Inverse. Throws error if not invertible.
 
 	// Misc operations
+	Vec rowVec(int row) const;
+	Vec colVec(int col) const;
 	double minor(int r, int c) const;
 
 	// Binary operations

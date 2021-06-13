@@ -802,6 +802,23 @@ Mat Mat::randomUniform(int height, int width, double min, double max) {
 	}
 	return Mat(height, width, components);
 }
+Mat Mat::fromRowVecs(int numVecs, Vec *vecs) {
+	if(numVecs == 0) return Mat(0);
+	int width = vecs[0].d;
+	double *components = (double*)malloc(numVecs*width * sizeof(double));
+	for(int row = 0; row < numVecs; row++) {
+		if(vecs[row].d != width) {
+			fprintf(stderr, "Cannot construct matrix from vectors"
+				" of varying dimension.\n");
+			exit(1);
+		}
+		memcpy(components + row*width, vecs[row].data, width * sizeof(double));
+	}
+	return Mat(numVecs, width, components);
+}
+Mat Mat::fromColVecs(int numVecs, Vec *vecs) {
+	return fromRowVecs(numVecs, vecs).T();
+}
 
 // Accessors
 int Mat::height() const {
@@ -977,6 +994,18 @@ double Mat::minor(int r, int c) const {
 	}
 
 	return Mat(h-1, w-1, dest).det();
+}
+Vec Mat::rowVec(int row) const {
+	double *components = (double*)malloc(w * sizeof(double));
+	memcpy(components, data + row*w, w * sizeof(double));
+	return Vec(w, components);
+}
+Vec Mat::colVec(int col) const {
+	double *components = (double*)malloc(h * sizeof(double));
+	for(int r = 0; r < h; r++) {
+		components[r] = comp(r, col);
+	}
+	return Vec(h, components);
 }
 
 // Unary operations
