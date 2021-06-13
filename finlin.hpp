@@ -13,29 +13,30 @@
 class FinLin {
 	friend class Vec;
 	friend class Mat;
-	friend void setArg(cl_kernel kernel, int argno, cl_mem obj);
-	friend void setArg(cl_kernel kernel, int argno, double obj);
-	friend void setArg(cl_kernel kernel, int argno, int obj);
-	friend void writeBuffer(
+
+	static void setArg(cl_kernel kernel, int argno, cl_mem obj);
+	static void setArg(cl_kernel kernel, int argno, double obj);
+	static void setArg(cl_kernel kernel, int argno, int obj);
+	static void writeBuffer(
 		cl_mem buffer,
 		size_t offset,
 		size_t cb,
 		const void *ptr
 	);
-	friend void execKernel(
+	static void execKernel(
 		cl_kernel kernel,
 		size_t offset,
 		size_t globalWorkSize,
 		size_t localWorkSize
 	);
-	friend void execKernel(
+	static void execKernel(
 		cl_kernel kernel,
 		size_t offset,
 		size_t globalSizeX,
 		size_t globalSizeY,
 		size_t localWorkSize
 	);
-	friend void readBuffer(
+	static void readBuffer(
 		cl_mem buffer,
 		size_t offset,
 		size_t cb,
@@ -131,6 +132,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	Vec operator-=(Vec subtrahend);
 	Vec operator%=(Vec multiplier); // Hadamard product
 
+	Vec normalize();
 	Vec setSigmoid(); // Fast sigmoid function
 	Vec setDsigmoid(); // Derivative of fast sigmoid function
 
