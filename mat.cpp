@@ -159,6 +159,18 @@ Mat Mat::randomUniform(int height, int width, double min, double max) {
 	}
 	return Mat(height, width, components);
 }
+Mat Mat::fromRowVec(Vec row) {
+	int width = row.d;
+	double *components = (double*)malloc(width * sizeof(double));
+	memcpy(components, row.data, width * sizeof(double));
+	return Mat(1, width, components);
+}
+Mat Mat::fromColVec(Vec col) {
+	int height = col.d;
+	double *components = (double*)malloc(height * sizeof(double));
+	memcpy(components, col.data, height * sizeof(double));
+	return Mat(height, 1, components);
+}
 Mat Mat::fromRowVecs(int numVecs, Vec *vecs) {
 	if(numVecs == 0) return Mat(0);
 	int width = vecs[0].d;

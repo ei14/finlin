@@ -3,7 +3,9 @@
 int main() {
 	FinLin::init(2, 0);
 
-	Mat m = Mat::randomUniform(4, 4, -1, 1);
-	printf("%s\n", m.string());
-	printf("%s\n", m.inv().string());
+	Vec a = Vec::randomUniform(4, 0, 1);
+	Vec b = Vec::randomUniform(4, 0, 1);
+
+	printf("%f\n", a * b);
+	printf("%s\n", (Mat::fromRowVec(a) * Mat::fromColVec(b)).string());
 }

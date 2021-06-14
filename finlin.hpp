@@ -161,6 +161,8 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 
 	// Statics
 	static Mat randomUniform(int height, int width, double min, double max);
+	static Mat fromRowVec(Vec row);
+	static Mat fromColVec(Vec col);
 	static Mat fromRowVecs(int numVecs, Vec *vecs); // Throws error if
 	static Mat fromColVecs(int numVecs, Vec *vecs); // dimensions don't match.
 
