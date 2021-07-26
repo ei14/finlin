@@ -131,16 +131,19 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	double norm() const; // Magnitude
 	Vec normal() const; // Unit vector
 
+	double sum() const; // Sum of components
+
 	Vec sigmoid() const; // Fast sigmoid function
 	Vec dsigmoid() const; // Derivative of fast sigmoid function
 
 	// Binary operations
 	Vec operator*(double scalar) const;
 	Vec operator/(double divisor) const;
+	double operator^(double exponent) const; // Magnitude raised to power
 
 	Vec operator+(Vec addend) const; // Throws error if dimensions mis-match
 	Vec operator-(Vec subtrahend) const; // ''
-	Vec operator^(Vec multiplier) const; // Hadamard product
+	Vec operator&(Vec multiplier) const; // Hadamard product
 	double operator*(Vec multiplier) const; // Dot product
 
 	// In-place operations
@@ -148,7 +151,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	Vec operator/=(double divisor);
 	Vec operator+=(Vec addend);
 	Vec operator-=(Vec subtrahend);
-	Vec operator^=(Vec multiplier); // Hadamard product
+	Vec operator&=(Vec multiplier); // Hadamard product
 
 	Vec normalize();
 	Vec setSigmoid(); // Fast sigmoid function
@@ -217,19 +220,21 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	// Binary operations
 	Mat operator*(double scalar) const;
 	Mat operator/(double divisor) const;
+	Mat operator^(int exponent) const; // Exponentiation
 
 	Vec operator*(Vec multiplier); // Throws error if dimensions mis-match
 
 	Mat operator*(Mat multiplier); // ''
-	Mat operator^(Mat multiplier) const; // Hadamard product
+	Mat operator&(Mat multiplier) const; // Hadamard product
 	Mat operator+(Mat addend) const;
 	Mat operator-(Mat subtrahend) const;
 
 	// In-place operations
 	Mat operator*=(double scalar);
 	Mat operator/=(double divisor);
+	Mat operator^=(int exponent); // Exponentiation
 
-	Mat operator^=(Mat multiplier); // Hadamard product
+	Mat operator&=(Mat multiplier); // Hadamard product
 	Mat operator+=(Mat addend);
 	Mat operator-=(Mat subtrahend);
 
@@ -275,16 +280,19 @@ class Veci { // Vector, integer components, on the GPU.
 	char *string() const; // As a string
 
 	// Unary operations
+	int sum() const; // Sum of components
+
 	Veci operator-() const;
 
 	// Binary operations
 	Veci operator*(int scalar) const;
 	Veci operator/(int divisor) const; // Round down
 	Veci operator%(int modulus) const; // Modulo
+	int operator^(int exponent) const; // Magnitude raised to even power
 
 	Veci operator+(Veci addend) const; // Throws error if dimensions mis-match
 	Veci operator-(Veci subtrahend) const; // ''
-	Veci operator^(Veci multiplier) const; // Hadamard product
+	Veci operator&(Veci multiplier) const; // Hadamard product
 	int operator*(Veci multiplier) const; // Dot product
 
 	// In-place operations
@@ -293,7 +301,7 @@ class Veci { // Vector, integer components, on the GPU.
 	Veci operator%=(int modulus); // Modulo
 	Veci operator+=(Veci addend);
 	Veci operator-=(Veci subtrahend);
-	Veci operator^=(Veci multiplier); // Hadamard product
+	Veci operator&=(Veci multiplier); // Hadamard product
 
 	// Mutators
 	int setComp(int index, int value);	// Sets component.
@@ -351,11 +359,12 @@ class Mati { // Matrix, integer components, on the GPU.
 	Mati operator*(int scalar) const;
 	Mati operator/(int divisor) const; // Rounds down
 	Mati operator%(int modulus) const; // Modulo
+	Mati operator^(int exponent) const; // Exponentiation
 
 	Veci operator*(Veci multiplier); // Throws error if dimensions mis-match
 
 	Mati operator*(Mati multiplier); // ''
-	Mati operator^(Mati multiplier) const; // Hadamard product
+	Mati operator&(Mati multiplier) const; // Hadamard product
 	Mati operator+(Mati addend) const;
 	Mati operator-(Mati subtrahend) const;
 
@@ -363,8 +372,9 @@ class Mati { // Matrix, integer components, on the GPU.
 	Mati operator*=(int scalar);
 	Mati operator/=(int divisor); // Rounds down
 	Mati operator%=(int modulus); // Modulo
+	Mati operator^=(int exponent); // Exponentiation
 
-	Mati operator^=(Mati multiplier); // Hadamard product
+	Mati operator&=(Mati multiplier); // Hadamard product
 	Mati operator+=(Mati addend);
 	Mati operator-=(Mati subtrahend);
 

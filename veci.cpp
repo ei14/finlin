@@ -158,7 +158,7 @@ Veci Veci::operator-=(Veci subtrahend) {
 	return *this;
 }
 
-Veci Veci::operator^=(Veci multiplier) {
+Veci Veci::operator&=(Veci multiplier) {
 	ensureSameVeciDim(d, multiplier.d, "multiply");
 	update();
 	multiplier.update();
@@ -190,6 +190,14 @@ Veci Veci::operator%(int modulus) const {
 	dividend /= modulus;
 	return dividend;
 }
+int Veci::operator^(int exponent) const {
+	int sqrMag = (*this * *this);
+	int res = 1;
+	for(int i = 0; i < exponent / 2; i++) {
+		res *= sqrMag;
+	}
+	return res;
+}
 
 Veci Veci::operator+(Veci addend) const {
 	ensureSameVeciDim(d, addend.d, "add");
@@ -203,26 +211,34 @@ Veci Veci::operator-(Veci subtrahend) const {
 	minuend -= subtrahend;
 	return minuend;
 }
-Veci Veci::operator^(Veci multiplier) const {
+Veci Veci::operator&(Veci multiplier) const {
 	ensureSameVeciDim(d, multiplier.d, "multiply");
 	Veci multiplicand = copy();
-	multiplicand ^= multiplier;
+	multiplicand &= multiplier;
 	return multiplicand;
 }
 int Veci::operator*(Veci multiplier) const {
 	if(d == 0 || multiplier.d == 0) return 0;
 
-	Veci hdm = *this ^ multiplier; // hdm is for Hadamard
+	Veci hdm = *this & multiplier; // hdm is for Hadamard
+
+	return hdm.sum();
+}
+
+// Unary operations
+int Veci::sum() const {
+	Vec mutated = copy();
+	mutated.update();
 
 	int len = d; // Is cut in half until down to 1.
 
-	FinLin::setArg(FinLin::reducei, 0, hdm.clmem);
+	FinLin::setArg(FinLin::reducei, 0, mutated.clmem);
 
 	while(len != 1) {
 		// Include the last element in the event of an odd length
 		if(len % 2 == 1) {
-			hdm.data[0] += hdm.data[len - 1]; // Add it to the first component
-			FinLin::writeBuffer(hdm.clmem, 0, sizeof(int), hdm.data);
+			mutated.data[0] += mutated.data[len - 1]; // Add it to the first component
+			FinLin::writeBuffer(mutated.clmem, 0, sizeof(int), mutated.data);
 		}
 
 		len /= 2;
@@ -232,12 +248,11 @@ int Veci::operator*(Veci multiplier) const {
 	}
 
 	// Only the first element is read. It should equal the result.
-	FinLin::readBuffer(hdm.clmem, 0, sizeof(int), hdm.data);
+	FinLin::readBuffer(mutated.clmem, 0, sizeof(int), mutated.data);
 
-	return hdm.data[0];
+	return mutated.data[0];
 }
 
-// Unary operations
 Veci Veci::operator-() const {
 	return -1 * *this;
 }

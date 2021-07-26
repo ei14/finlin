@@ -252,8 +252,14 @@ Mati Mati::operator%=(int modulus) {
 
 	return *this;
 }
+Mati Mati::operator^=(int exponent) {
+	for(int i = 1; i < exponent; i++) {
+		*this = *this * *this;
+	}
+	return *this;
+}
 
-Mati Mati::operator^=(Mati multiplier) {
+Mati Mati::operator&=(Mati multiplier) {
 	ensureSameMatDim(h, w, multiplier.h, multiplier.w, "multiply");
 
 	update();
@@ -316,6 +322,11 @@ Mati Mati::operator%(int modulus) const {
 	dividend %= modulus;
 	return dividend;
 }
+Mati Mati::operator^(int exponent) const {
+	Mat base = copy();
+	base ^= exponent;
+	return base;
+}
 
 Veci Mati::operator*(Veci vector) {
 	ensureMulMatDims(w, vector.d, "multiply");
@@ -369,9 +380,9 @@ Mati Mati::operator*(Mati multiplier) {
 	return Mati(h, multiplier.w, resData);
 }
 
-Mati Mati::operator^(Mati multiplier) const {
+Mati Mati::operator&(Mati multiplier) const {
 	Mati multiplicand = copy();
-	multiplicand ^= multiplier;
+	multiplicand &= multiplier;
 	return multiplicand;
 }
 Mati Mati::operator+(Mati addend) const {

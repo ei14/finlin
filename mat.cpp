@@ -227,8 +227,14 @@ Mat Mat::operator*=(double scalar) {
 Mat Mat::operator/=(double divisor) {
 	return *this *= 1.0/divisor;
 }
+Mat Mat::operator^=(int exponent) {
+	for(int i = 1; i < exponent; i++) {
+		*this = *this * *this;
+	}
+	return *this;
+}
 
-Mat Mat::operator^=(Mat multiplier) {
+Mat Mat::operator&=(Mat multiplier) {
 	ensureSameMatDim(h, w, multiplier.h, multiplier.w, "multiply");
 
 	update();
@@ -331,6 +337,11 @@ Mat Mat::operator/(double divisor) const {
 	dividend /= divisor;
 	return dividend;
 }
+Mat Mat::operator^(int exponent) const {
+	Mat base = copy();
+	base ^= exponent;
+	return base;
+}
 
 Vec Mat::operator*(Vec vector) {
 	ensureMulMatDims(w, vector.d, "multiply");
@@ -384,9 +395,9 @@ Mat Mat::operator*(Mat multiplier) {
 	return Mat(h, multiplier.w, resData);
 }
 
-Mat Mat::operator^(Mat multiplier) const {
+Mat Mat::operator&(Mat multiplier) const {
 	Mat multiplicand = copy();
-	multiplicand ^= multiplier;
+	multiplicand &= multiplier;
 	return multiplicand;
 }
 Mat Mat::operator+(Mat addend) const {

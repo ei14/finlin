@@ -150,7 +150,7 @@ Vec Vec::operator-=(Vec subtrahend) {
 	return *this;
 }
 
-Vec Vec::operator^=(Vec multiplier) {
+Vec Vec::operator&=(Vec multiplier) {
 	ensureSameVecDim(d, multiplier.d, "multiply");
 	update();
 	multiplier.update();
@@ -199,6 +199,9 @@ Vec Vec::operator/(double divisor) const {
 	dividend /= divisor;
 	return dividend;
 }
+double Vec::operator^(double exponent) const {
+	return pow(norm(), exponent);
+}
 
 Vec Vec::operator+(Vec addend) const {
 	ensureSameVecDim(d, addend.d, "add");
@@ -212,26 +215,34 @@ Vec Vec::operator-(Vec subtrahend) const {
 	minuend -= subtrahend;
 	return minuend;
 }
-Vec Vec::operator^(Vec multiplier) const {
+Vec Vec::operator&(Vec multiplier) const {
 	ensureSameVecDim(d, multiplier.d, "multiply");
 	Vec multiplicand = copy();
-	multiplicand ^= multiplier;
+	multiplicand &= multiplier;
 	return multiplicand;
 }
 double Vec::operator*(Vec multiplier) const {
 	if(d == 0 || multiplier.d == 0) return 0;
 
-	Vec hdm = *this ^ multiplier; // hdm is for Hadamard
+	Vec hdm = *this & multiplier; // hdm is for Hadamard
+
+	return hdm.sum();
+}
+
+// Unary operations
+double Vec::sum() const {
+	Vec mutated = copy();
+	mutated.update();
 
 	int len = d; // Is cut in half until down to 1.
 
-	FinLin::setArg(FinLin::reduce, 0, hdm.clmem);
+	FinLin::setArg(FinLin::reduce, 0, mutated.clmem);
 
 	while(len != 1) {
 		// Include the last element in the event of an odd length
 		if(len % 2 == 1) {
-			hdm.data[0] += hdm.data[len - 1]; // Add it to the first component
-			FinLin::writeBuffer(hdm.clmem, 0, sizeof(double), hdm.data);
+			mutated.data[0] += mutated.data[len - 1]; // Add it to the first component
+			FinLin::writeBuffer(mutated.clmem, 0, sizeof(double), mutated.data);
 		}
 
 		len /= 2;
@@ -241,18 +252,17 @@ double Vec::operator*(Vec multiplier) const {
 	}
 
 	// Only the first element is read. It should equal the result.
-	FinLin::readBuffer(hdm.clmem, 0, sizeof(double), hdm.data);
+	FinLin::readBuffer(mutated.clmem, 0, sizeof(double), mutated.data);
 
-	return hdm.data[0];
+	return mutated.data[0];
 }
 
-// Unary operations
 Vec Vec::operator-() const {
 	return -1.0 * *this;
 }
 
 double Vec::norm() const {
-	return sqrt(*this * *this);
+	return sqrt(*this ^ 2);
 }
 Vec Vec::normal() const {
 	return *this / norm();
