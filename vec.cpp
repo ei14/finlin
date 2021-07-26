@@ -53,6 +53,14 @@ Vec::Vec(int dimension) {
 	memset(data, 0, d * sizeof(double));
 	createMem();
 }
+Vec::Vec(Veci vec) {
+	d = vec.d;
+	data = (double*)malloc(d * sizeof(double));
+	for(int i = 0; i < d; i++) {
+		data[i] = (double)vec.data[i];
+	}
+	createMem();
+}
 
 // Statics
 Vec Vec::randomUniform(int dim, double min, double max) {
@@ -142,7 +150,7 @@ Vec Vec::operator-=(Vec subtrahend) {
 	return *this;
 }
 
-Vec Vec::operator%=(Vec multiplier) {
+Vec Vec::operator^=(Vec multiplier) {
 	ensureSameVecDim(d, multiplier.d, "multiply");
 	update();
 	multiplier.update();
@@ -204,16 +212,16 @@ Vec Vec::operator-(Vec subtrahend) const {
 	minuend -= subtrahend;
 	return minuend;
 }
-Vec Vec::operator%(Vec multiplier) const {
+Vec Vec::operator^(Vec multiplier) const {
 	ensureSameVecDim(d, multiplier.d, "multiply");
 	Vec multiplicand = copy();
-	multiplicand %= multiplier;
+	multiplicand ^= multiplier;
 	return multiplicand;
 }
 double Vec::operator*(Vec multiplier) const {
 	if(d == 0 || multiplier.d == 0) return 0;
 
-	Vec hdm = *this % multiplier; // hdm is for Hadamard
+	Vec hdm = *this ^ multiplier; // hdm is for Hadamard
 
 	int len = d; // Is cut in half until down to 1.
 
@@ -240,7 +248,7 @@ double Vec::operator*(Vec multiplier) const {
 
 // Unary operations
 Vec Vec::operator-() const {
-	return -1 * *this;
+	return -1.0 * *this;
 }
 
 double Vec::norm() const {

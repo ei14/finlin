@@ -3,6 +3,8 @@
 #include "finlin.hpp"
 
 const char *FinLin::SRC = R"(
+// DOUBLE KERNELS
+
 __kernel void scale(__global double *vector, const double scalar) {
 	int i = get_global_id(0);
 	vector[i] *= scalar;
@@ -77,6 +79,83 @@ __kernel void matMul(
 		prod[r*w + c] += mplcnd[r*depth + i] * mplier[c + i*w];
 	}
 }
+
+// INTEGER KERNELS
+
+__kernel void scalei(__global int *vector, const int scalar) {
+	int i = get_global_id(0);
+	vector[i] *= scalar;
+}
+__kernel void dividei(__global int *vector, const int divisor) {
+	int i = get_global_id(0);
+	vector[i] /= divisor;
+}
+__kernel void modulo(__global int *vector, const int modulus) {
+	int i = get_global_id(0);
+	vector[i] %= modulus;
+}
+
+__kernel void addi(__global int *augend, __global const int *addend) {
+	int i = get_global_id(0);
+	augend[i] += addend[i];
+}
+
+__kernel void addScaledi(
+	__global int *augend,
+	__global const int *addend,
+	const int coeff
+) {
+	int i = get_global_id(0);
+	augend[i] += coeff * addend[i];
+}
+
+__kernel void hadamardi(
+	__global int *multiplicand,
+	__global const int *multiplier
+) {
+	int i = get_global_id(0);
+	multiplicand[i] *= multiplier[i];
+}
+
+__kernel void reducei(__global int *arr, const int newlen) {
+	int i = get_global_id(0);
+	arr[i] += arr[i + newlen];
+}
+
+__kernel void matVeci(
+	__global const int *matrix,
+	__global const int *vector,
+	__global int *prod,
+	const int depth
+) {
+	int r = get_global_id(0);
+	int h = get_global_size(0);
+
+	prod[r] = 0;
+
+	for(int i = 0; i < depth; i++) {
+		prod[r] += matrix[r*depth + i] * vector[i];
+	}
+}
+
+__kernel void matMuli(
+	__global const int *mplcnd,
+	__global const int *mplier,
+	__global int *prod,
+	const int depth
+) {
+	int r = get_global_id(0);
+	int c = get_global_id(1);
+	int h = get_global_size(0);
+	int w = get_global_size(1);
+
+	prod[r*w + c] = 0;
+
+	for(int i = 0; i < depth; i++) {
+		prod[r*w + c] += mplcnd[r*depth + i] * mplier[c + i*w];
+	}
+}
+
 )";
 
 int FinLin::err;
@@ -98,6 +177,16 @@ cl_kernel FinLin::sigmoid;
 cl_kernel FinLin::dsigmoid;
 cl_kernel FinLin::matMul;
 cl_kernel FinLin::matVec;
+
+cl_kernel FinLin::reducei;
+cl_kernel FinLin::scalei;
+cl_kernel FinLin::dividei;
+cl_kernel FinLin::modulo;
+cl_kernel FinLin::addi;
+cl_kernel FinLin::addScaledi;
+cl_kernel FinLin::hadamardi;
+cl_kernel FinLin::matMuli;
+cl_kernel FinLin::matVeci;
 
 double *res;
 cl_mem memRes;
@@ -253,6 +342,16 @@ void FinLin::init(int platformID, int deviceID) {
 	dsigmoid = clCreateKernel(program, "dsigmoid", &err); checkErr();
 	matVec = clCreateKernel(program, "matVec", &err); checkErr();
 	matMul = clCreateKernel(program, "matMul", &err); checkErr();
+
+	scalei = clCreateKernel(program, "scalei", &err); checkErr();
+	dividei = clCreateKernel(program, "dividei", &err); checkErr();
+	modulo = clCreateKernel(program, "modulo", &err); checkErr();
+	addi = clCreateKernel(program, "addi", &err); checkErr();
+	addScaledi = clCreateKernel(program, "addScaledi", &err); checkErr();
+	hadamardi = clCreateKernel(program, "hadamardi", &err); checkErr();
+	reducei = clCreateKernel(program, "reducei", &err); checkErr();
+	matVeci = clCreateKernel(program, "matVeci", &err); checkErr();
+	matMuli = clCreateKernel(program, "matMuli", &err); checkErr();
 }
 
 // General helper functions

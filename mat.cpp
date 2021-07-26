@@ -160,16 +160,10 @@ Mat Mat::randomUniform(int height, int width, double min, double max) {
 	return Mat(height, width, components);
 }
 Mat Mat::fromRowVec(Vec row) {
-	int width = row.d;
-	double *components = (double*)malloc(width * sizeof(double));
-	memcpy(components, row.data, width * sizeof(double));
-	return Mat(1, width, components);
+	return Mat(1, row.d, row.data);
 }
 Mat Mat::fromColVec(Vec col) {
-	int height = col.d;
-	double *components = (double*)malloc(height * sizeof(double));
-	memcpy(components, col.data, height * sizeof(double));
-	return Mat(height, 1, components);
+	return Mat(col.d, 1, col.data);
 }
 Mat Mat::fromRowVecs(int numVecs, Vec *vecs) {
 	if(numVecs == 0) return Mat(0);
@@ -234,6 +228,19 @@ Mat Mat::operator/=(double divisor) {
 	return *this *= 1.0/divisor;
 }
 
+Mat Mat::operator^=(Mat multiplier) {
+	ensureSameMatDim(h, w, multiplier.h, multiplier.w, "multiply");
+
+	update();
+	multiplier.update();
+
+	FinLin::setArg(FinLin::hadamard, 0, clmem);
+	FinLin::setArg(FinLin::hadamard, 1, multiplier.clmem);
+	FinLin::execKernel(FinLin::hadamard, 0, w*h, 0);
+	FinLin::readBuffer(clmem, 0, w*h * sizeof(double), data);
+
+	return *this;
+}
 Mat Mat::operator+=(Mat addend) {
 	ensureSameMatDim(h, w, addend.h, addend.w, "add");
 
@@ -377,6 +384,11 @@ Mat Mat::operator*(Mat multiplier) {
 	return Mat(h, multiplier.w, resData);
 }
 
+Mat Mat::operator^(Mat multiplier) const {
+	Mat multiplicand = copy();
+	multiplicand ^= multiplier;
+	return multiplicand;
+}
 Mat Mat::operator+(Mat addend) const {
 	Mat augend = copy();
 	augend += addend;
@@ -437,7 +449,7 @@ double Mat::trace() const {
 }
 
 Mat Mat::operator-() const {
-	return -1 * *this;
+	return -1.0 * *this;
 }
 
 Mat Mat::T() const {

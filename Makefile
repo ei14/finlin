@@ -1,8 +1,10 @@
-main: finlin.cpp main.cpp vec.cpp mat.cpp
+main: finlin.cpp main.cpp vec.cpp mat.cpp veci.cpp mati.cpp
 	g++ -c finlin.cpp
 	g++ -c vec.cpp
 	g++ -c mat.cpp
-	ar rvs finlin.a finlin.o vec.o mat.o
+	g++ -c veci.cpp
+	g++ -c mati.cpp
+	ar rvs finlin.a finlin.o vec.o mat.o veci.o mati.o
 	g++ main.cpp finlin.a -lOpenCL -o main
 
 run:

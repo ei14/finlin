@@ -14,6 +14,9 @@ class FinLin {
 	friend class Vec;
 	friend class Mat;
 
+	friend class Veci;
+	friend class Mati;
+
 	static void setArg(cl_kernel kernel, int argno, cl_mem obj);
 	static void setArg(cl_kernel kernel, int argno, double obj);
 	static void setArg(cl_kernel kernel, int argno, int obj);
@@ -69,6 +72,17 @@ class FinLin {
 	static cl_kernel matVec; // Matrix and vector multiplication
 	static cl_kernel matMul; // Matrix multiplication
 
+	// Integer kernels
+	static cl_kernel scalei; // Scale an array
+	static cl_kernel dividei; // Divide an array by a scalar
+	static cl_kernel modulo; // Perform modulo on integer array
+	static cl_kernel addi; // Add two arrays element-wise
+	static cl_kernel addScaledi; // Add a scalar multiple of an array to another
+	static cl_kernel hadamardi; // Multiply two arrays element-wise
+	static cl_kernel reducei; // Halves an even-length array, preserving sum.
+	static cl_kernel matVeci; // Matrix and vector multiplication
+	static cl_kernel matMuli; // Matrix multiplication
+
 	static void checkErr(); // Stops the program if there is an error
 
 	static double *res; // Results from kernels
@@ -81,8 +95,10 @@ class FinLin {
 												// creating any objects.
 };
 
+class Veci;
 class Vec { // Vector, real components, double precision, on the GPU.
 	friend class Mat;
+	friend class Veci;
 
 	int d; // Dimension
 	double *data; // Components
@@ -102,6 +118,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	Vec(int dimension); // Zero vector
 	Vec(int dimension, double* components);
 	Vec(int dimension, double value); // Populates all components with value
+	Vec(Veci vec); // Convert integers to doubles
 
 	// Accessors
 	int dim() const; // Dimension
@@ -123,7 +140,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 
 	Vec operator+(Vec addend) const; // Throws error if dimensions mis-match
 	Vec operator-(Vec subtrahend) const; // ''
-	Vec operator%(Vec multiplier) const; // Hadamard product
+	Vec operator^(Vec multiplier) const; // Hadamard product
 	double operator*(Vec multiplier) const; // Dot product
 
 	// In-place operations
@@ -131,7 +148,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	Vec operator/=(double divisor);
 	Vec operator+=(Vec addend);
 	Vec operator-=(Vec subtrahend);
-	Vec operator%=(Vec multiplier); // Hadamard product
+	Vec operator^=(Vec multiplier); // Hadamard product
 
 	Vec normalize();
 	Vec setSigmoid(); // Fast sigmoid function
@@ -147,7 +164,10 @@ class Vec { // Vector, real components, double precision, on the GPU.
 };
 Vec operator*(double scalar, Vec vector);
 
+class Mati;
 class Mat { // Matrix, real components, double precision, on the GPU.
+	friend class Mati;
+
 	double *data; // Components, row by row
 	int h; // Height
 	int w; // Width
@@ -171,6 +191,7 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	Mat(int size, double scalar); // Scalar multiple of identity matrix
 	Mat(int height, int width); // Zero matrix
 	Mat(int height, int width, double *data);
+	Mat(Mati mat); // Convert integers to doubles
 
 	// Accessors
 	int height() const;
@@ -187,8 +208,6 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 
 	Mat operator-() const;
 	Mat T() const; // Transpose
-	Mat cofactor() const;
-	Mat adj() const; // Adjoint
 	Mat inv() const; // Inverse. Throws error if not invertible.
 
 	// Misc operations
@@ -202,6 +221,7 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	Vec operator*(Vec multiplier); // Throws error if dimensions mis-match
 
 	Mat operator*(Mat multiplier); // ''
+	Mat operator^(Mat multiplier) const; // Hadamard product
 	Mat operator+(Mat addend) const;
 	Mat operator-(Mat subtrahend) const;
 
@@ -209,6 +229,7 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	Mat operator*=(double scalar);
 	Mat operator/=(double divisor);
 
+	Mat operator^=(Mat multiplier); // Hadamard product
 	Mat operator+=(Mat addend);
 	Mat operator-=(Mat subtrahend);
 
@@ -223,5 +244,138 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 					// Matrix operations should do this automatically.
 };
 Mat operator*(double scalar, Mat matrix);
+
+class Veci { // Vector, integer components, on the GPU.
+	friend class Vec;
+	friend class Mati;
+
+	int d; // Dimension
+	int *data; // Components
+	cl_mem clmem; // OpenCL memory object
+
+	bool dirty; // Changes have been made in RAM but not in GPU RAM
+
+	void createMem();
+
+	public:
+
+	// Statics
+	static Veci randomUniform(int dim, int min, int max);
+
+	// Constructors
+	Veci(int dimension); // Zero vector
+	Veci(int dimension, int* components);
+	Veci(int dimension, int value); // Populates all components with value
+	Veci(Vec vec); // Round doubles down
+
+	// Accessors
+	int dim() const; // Dimension
+
+	int comp(int index) const; // Component
+	char *string() const; // As a string
+
+	// Unary operations
+	Veci operator-() const;
+
+	// Binary operations
+	Veci operator*(int scalar) const;
+	Veci operator/(int divisor) const; // Round down
+	Veci operator%(int modulus) const; // Modulo
+
+	Veci operator+(Veci addend) const; // Throws error if dimensions mis-match
+	Veci operator-(Veci subtrahend) const; // ''
+	Veci operator^(Veci multiplier) const; // Hadamard product
+	int operator*(Veci multiplier) const; // Dot product
+
+	// In-place operations
+	Veci operator*=(int scalar);
+	Veci operator/=(int divisor); // Round down
+	Veci operator%=(int modulus); // Modulo
+	Veci operator+=(Veci addend);
+	Veci operator-=(Veci subtrahend);
+	Veci operator^=(Veci multiplier); // Hadamard product
+
+	// Mutators
+	int setComp(int index, int value);	// Sets component.
+												// Returns previous value.
+	// Technical methods
+	Veci copy() const;
+	bool update();	// If necessary, updates the GPU memory and returns true.
+					// Vecitor operations should do this automatically.
+};
+Veci operator*(int scalar, Veci vector);
+
+class Mati { // Matrix, integer components, on the GPU.
+	int *data; // Components, row by row
+	int h; // Height
+	int w; // Width
+	cl_mem clmem; // OpenCL memory object
+
+	bool dirty; // Changes have been made in RAM but not in GPU RAM
+
+	void createMem();
+
+	public:
+
+	// Statics
+	static Mati randomUniform(int height, int width, int min, int max);
+	static Mati fromRowVec(Veci row);
+	static Mati fromColVec(Veci col);
+	static Mati fromRowVecs(int numVecs, Veci *vecs); // Throws error if
+	static Mati fromColVecs(int numVecs, Veci *vecs); // dimensions don't match.
+
+	// Constructors
+	Mati(int size); // Identity matrix
+	Mati(int height, int width); // Zero matrix
+	Mati(int height, int width, int *data);
+	Mati(Mat mat); // Round doubles down
+
+	// Accessors
+	int height() const;
+	int width() const;
+
+	int comp(int r, int c) const; // Component
+	char *string() const; // As a string
+
+	// Unary operations
+	int trace() const;
+
+	Mati operator-() const;
+	Mati T() const; // Transpose
+
+	// Misc operations
+	Veci rowVeci(int row) const;
+	Veci colVeci(int col) const;
+
+	// Binary operations
+	Mati operator*(int scalar) const;
+	Mati operator/(int divisor) const; // Rounds down
+	Mati operator%(int modulus) const; // Modulo
+
+	Veci operator*(Veci multiplier); // Throws error if dimensions mis-match
+
+	Mati operator*(Mati multiplier); // ''
+	Mati operator^(Mati multiplier) const; // Hadamard product
+	Mati operator+(Mati addend) const;
+	Mati operator-(Mati subtrahend) const;
+
+	// In-place operations
+	Mati operator*=(int scalar);
+	Mati operator/=(int divisor); // Rounds down
+	Mati operator%=(int modulus); // Modulo
+
+	Mati operator^=(Mati multiplier); // Hadamard product
+	Mati operator+=(Mati addend);
+	Mati operator-=(Mati subtrahend);
+
+	// Mutators
+	int setComp(int r, int c, int value);	// Sets component.
+												// Returns previous value.
+	// Technical methods
+	Mati copy() const;
+	bool update();	// If necessary, updates the GPU memory and returns true.
+					// Matirix operations should do this automatically.
+};
+Mati operator*(int scalar, Mati matrix);
 
 #endif
