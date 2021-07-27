@@ -79,6 +79,11 @@ __kernel void matMul(
 		prod[r*w + c] += mplcnd[r*depth + i] * mplier[c + i*w];
 	}
 }
+__kernel void compNot(__global double *vector) {
+	int i = get_global_id(0);
+	if(vector[i] == 0.0) vector[i] = 1.0;
+	else vector[i] = 0.0;
+}
 
 // INTEGER KERNELS
 
@@ -156,6 +161,12 @@ __kernel void matMuli(
 	}
 }
 
+__kernel void compNoti(__global int *vector) {
+	int i = get_global_id(0);
+	if(vector[i] == 0) vector[i] = 1;
+	else vector[i] = 0;
+}
+
 )";
 
 int FinLin::err;
@@ -177,6 +188,7 @@ cl_kernel FinLin::sigmoid;
 cl_kernel FinLin::dsigmoid;
 cl_kernel FinLin::matMul;
 cl_kernel FinLin::matVec;
+cl_kernel FinLin::compNot;
 
 cl_kernel FinLin::reducei;
 cl_kernel FinLin::scalei;
@@ -187,6 +199,7 @@ cl_kernel FinLin::addScaledi;
 cl_kernel FinLin::hadamardi;
 cl_kernel FinLin::matMuli;
 cl_kernel FinLin::matVeci;
+cl_kernel FinLin::compNoti;
 
 double *res;
 cl_mem memRes;
@@ -342,6 +355,7 @@ void FinLin::init(int platformID, int deviceID) {
 	dsigmoid = clCreateKernel(program, "dsigmoid", &err); checkErr();
 	matVec = clCreateKernel(program, "matVec", &err); checkErr();
 	matMul = clCreateKernel(program, "matMul", &err); checkErr();
+	compNot = clCreateKernel(program, "compNot", &err); checkErr();
 
 	scalei = clCreateKernel(program, "scalei", &err); checkErr();
 	dividei = clCreateKernel(program, "dividei", &err); checkErr();
@@ -352,6 +366,7 @@ void FinLin::init(int platformID, int deviceID) {
 	reducei = clCreateKernel(program, "reducei", &err); checkErr();
 	matVeci = clCreateKernel(program, "matVeci", &err); checkErr();
 	matMuli = clCreateKernel(program, "matMuli", &err); checkErr();
+	compNoti = clCreateKernel(program, "compNoti", &err); checkErr();
 }
 
 // General helper functions

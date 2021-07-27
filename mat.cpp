@@ -462,6 +462,16 @@ double Mat::trace() const {
 Mat Mat::operator-() const {
 	return -1.0 * *this;
 }
+Mat Mat::operator~() const {
+	Mat negated = copy();
+	negated.update();
+
+	FinLin::setArg(FinLin::compNot, 0, negated.clmem);
+	FinLin::execKernel(FinLin::compNot, 0, w*h, 0);
+	FinLin::readBuffer(negated.clmem, 0, w*h * sizeof(double), negated.data);
+
+	return negated;
+}
 
 Mat Mat::T() const {
 	double *res = (double*)malloc(w*h * sizeof(double));

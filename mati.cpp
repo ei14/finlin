@@ -396,6 +396,40 @@ Mati Mati::operator-(Mati subtrahend) const {
 	return minuend;
 }
 
+// Unary operations
+
+int Mati::trace() const {
+	ensureSquare(h, w, "find trace");
+	int sum = 0;
+	for(int i = 0; i < h; i++) {
+		sum += comp(i, i);
+	}
+	return sum;
+}
+
+Mati Mati::operator-() const {
+	return -1 * *this;
+}
+Mati Mati::operator~() const {
+	Mati negated = copy();
+	negated.update();
+
+	FinLin::setArg(FinLin::compNoti, 0, negated.clmem);
+	FinLin::execKernel(FinLin::compNoti, 0, w*h, 0);
+	FinLin::readBuffer(negated.clmem, 0, w*h * sizeof(int), negated.data);
+
+	return negated;
+}
+Mati Mati::T() const {
+	int *res = (int*)malloc(w*h * sizeof(int));
+	for(int r = 0; r < h; r++) {
+		for(int c = 0; c < w; c++) {
+			res[c*h + r] = data[r*w + c];
+		}
+	}
+	return Mati(w, h, res);
+}
+
 // Misc operations
 Veci Mati::rowVeci(int row) const {
 	int *components = (int*)malloc(w * sizeof(int));
@@ -408,14 +442,4 @@ Veci Mati::colVeci(int col) const {
 		components[r] = comp(r, col);
 	}
 	return Veci(h, components);
-}
-
-Mati Mati::T() const {
-	int *res = (int*)malloc(w*h * sizeof(int));
-	for(int r = 0; r < h; r++) {
-		for(int c = 0; c < w; c++) {
-			res[c*h + r] = data[r*w + c];
-		}
-	}
-	return Mati(w, h, res);
 }

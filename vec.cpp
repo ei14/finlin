@@ -256,6 +256,16 @@ double Vec::sum() const {
 
 	return mutated.data[0];
 }
+Vec Vec::operator~() const {
+	Vec negated = copy();
+	negated.update();
+
+	FinLin::setArg(FinLin::compNot, 0, negated.clmem);
+	FinLin::execKernel(FinLin::compNot, 0, d, 0);
+	FinLin::readBuffer(negated.clmem, 0, d*sizeof(double), negated.data);
+
+	return negated;
+}
 
 Vec Vec::operator-() const {
 	return -1.0 * *this;

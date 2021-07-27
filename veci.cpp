@@ -252,6 +252,16 @@ int Veci::sum() const {
 
 	return mutated.data[0];
 }
+Veci Veci::operator~() const {
+	Veci negated = copy();
+	negated.update();
+
+	FinLin::setArg(FinLin::compNoti, 0, negated.clmem);
+	FinLin::execKernel(FinLin::compNoti, 0, d, 0);
+	FinLin::readBuffer(negated.clmem, 0, d*sizeof(int), negated.data);
+
+	return negated;
+}
 
 Veci Veci::operator-() const {
 	return -1 * *this;

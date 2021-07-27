@@ -71,6 +71,7 @@ class FinLin {
 	static cl_kernel reduce; // Halves an even-length array, preserving sum.
 	static cl_kernel matVec; // Matrix and vector multiplication
 	static cl_kernel matMul; // Matrix multiplication
+	static cl_kernel compNot; // Replace zeros with ones, non-zeros with zeros.
 
 	// Integer kernels
 	static cl_kernel scalei; // Scale an array
@@ -82,6 +83,7 @@ class FinLin {
 	static cl_kernel reducei; // Halves an even-length array, preserving sum.
 	static cl_kernel matVeci; // Matrix and vector multiplication
 	static cl_kernel matMuli; // Matrix multiplication
+	static cl_kernel compNoti; // Replace zeros with ones, non-zeros with zeros.
 
 	static void checkErr(); // Stops the program if there is an error
 
@@ -132,6 +134,7 @@ class Vec { // Vector, real components, double precision, on the GPU.
 	Vec normal() const; // Unit vector
 
 	double sum() const; // Sum of components
+	Vec operator~() const; // Replace zeros with ones, non-zeros with zeros.
 
 	Vec sigmoid() const; // Fast sigmoid function
 	Vec dsigmoid() const; // Derivative of fast sigmoid function
@@ -213,6 +216,8 @@ class Mat { // Matrix, real components, double precision, on the GPU.
 	Mat T() const; // Transpose
 	Mat inv() const; // Inverse. Throws error if not invertible.
 
+	Mat operator~() const; // Replace zeros with ones, non-zeros with zeros.
+
 	// Misc operations
 	Vec rowVec(int row) const;
 	Vec colVec(int col) const;
@@ -281,6 +286,7 @@ class Veci { // Vector, integer components, on the GPU.
 
 	// Unary operations
 	int sum() const; // Sum of components
+	Veci operator~() const; // Replace zeros with ones, non-zeros with zeros.
 
 	Veci operator-() const;
 
@@ -350,6 +356,8 @@ class Mati { // Matrix, integer components, on the GPU.
 
 	Mati operator-() const;
 	Mati T() const; // Transpose
+
+	Mati operator~() const; // Replace zeros with ones, non-zeros with zeros.
 
 	// Misc operations
 	Veci rowVeci(int row) const;
